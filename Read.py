@@ -17,10 +17,10 @@ while 1:
     reader = SimpleMFRC522()
     try:
         id, text = reader.read()
-        if ('true' in text):
+        if 'true' in text:
             reader.write("false")
             zaishitu = 0
-        elif ('false' in text):
+        elif 'false' in text:
             reader.write("true")
             zaishitu = 1
     finally:
@@ -39,7 +39,7 @@ while 1:
 
     # Insert処理
     with connection.cursor() as cursor:
-        sql = "INSERT INTO zaishitu VALUES (%s, %s, %s)"
+        sql = 'INSERT INTO zaishitu VALUES (%s, %s, %s)'
         cursor.execute(sql, (dt_now,  id, zaishitu))
         # autocommitではないので、明示的にコミットする
         connection.commit()
