@@ -7,16 +7,24 @@ import pymysql.cursors
 import RPi.GPIO as GPIO
 from mfrc522 import SimpleMFRC522
 
+config = {
+    'user': 'COSMOS',
+    'password': 'PASSWORD',
+    'host': 'localhost',
+    'database': 'room_management',
+    'charset': 'utf8'
+}
+
 while 1:
     zaishitu = 0
 
     # 現在時刻
     dt_now = datetime.datetime.now()
 
-    # 在室の判断
+    # RFID取得
     reader = SimpleMFRC522()
     try:
-        id, text = reader.read()
+        rfid, text = reader.read()
         if 'true' in text:
             reader.write("false")
             zaishitu = 0
@@ -25,31 +33,42 @@ while 1:
             zaishitu = 1
     finally:
         GPIO.cleanup()
+        print("読み込み完了")
 
-    print("read")
+    # 在室情報のInsert処理
+    def query(sql, args):
+        with connection.cursor() as cursor:
+            cursor.execute(sql, args)
+            connection.commit()
 
     # MySQLに接続する
-    connection = pymysql.connect(
-        host='localhost',
-        user='COSMOS',
-        password='PASSWORD',
-        db='room_management',
-        charset='utf8'
-    )
+    connection = pymysql.connect(**config)
 
-    # Insert処理
+    # RFIDの有無の確認
     with connection.cursor() as cursor:
-        sql = 'INSERT INTO zaishitu VALUES (%s, %s, %s)'
-        cursor.execute(sql, (dt_now, id, zaishitu))
+        # query('select * from username where rfid_id = %s', rfid)
+        sql_1 = 'select * from username where rfid_id = %s'
+        cursor.execute(sql_1, rfid)
         # autocommitではないので、明示的にコミットする
         connection.commit()
+
+    print("あるか無いか")
+    if str(cursor.fetchone()) == 'None':
+        print("なかった")
+        # RFIDの新規登録
+        with connection.cursor() as cursor:
+            query('INSERT INTO username VALUES (%s, %s)', (rfid, 'NULL'))
+
+            zaishitu = 1
+            reader.write("true")
+            print("新規登録完了")
+
+        query('INSERT INTO zaishitu VALUES (%s, %s, %s)', (dt_now, rfid, zaishitu))
+
+    else:
+        print("あった")
+        query('INSERT INTO zaishitu VALUES (%s, %s, %s)', (dt_now, rfid, zaishitu))
 
     # MySQLから切断する
     connection.close()
     time.sleep(2)
-
-# https://pimylifeup.com/raspberry-pi-rfid-rc522/
-
-# https://qiita.com/utti0307/items/8abbea38bf78ff4abfa0
-# https://qiita.com/johndoe1022/items/0c704a64a38d876e8bdf
-# https://www.google.com/search?client=ms-android-samsung-ss&sxsrf=ALeKk01EGYCg3H2Q6gayqkUNqX8wdlz4wQ%3A1608573337105&ei=meHgX4ziBdbWhwP71beICA&q=python+mariadb&oq=python+Maria&gs_lcp=ChNtb2JpbGUtZ3dzLXdpei1zZXJwEAEYADICCAAyAggAMgIIADICCAAyAggAMgUIABDLATIFCAAQywEyBQgAEMsBOgQIABBHOgQIIxAnOgoIABCxAxCDARAEOgoIABCxAxCDARBDOgQIABAEOgQIABBDOggIABCxAxCDAToFCAAQsQNQvSNY2XFgyH5oAHABeACAAZQCiAGNDJIBBTAuMS42mAEAoAEByAEEwAEB&sclient=mobile-gws-wiz-serp
