@@ -7,6 +7,8 @@ import pymysql.cursors
 import RPi.GPIO as GPIO
 from mfrc522 import SimpleMFRC522
 
+import LED
+
 config = {
     'user': 'COSMOS',
     'password': 'PASSWORD',
@@ -53,6 +55,9 @@ while 1:
         connection.commit()
 
     print("あるか無いか")
+
+    # if
+    led = LED.LED()
     if str(cursor.fetchone()) == 'None':
         print("なかった")
         # RFIDの新規登録
@@ -62,12 +67,17 @@ while 1:
             zaishitu = 1
             reader.write("true")
             print("新規登録完了")
+            led.Sing_Up()
 
         query('INSERT INTO zaishitu VALUES (%s, %s, %s)', (dt_now, rfid, zaishitu))
 
     else:
         print("あった")
         query('INSERT INTO zaishitu VALUES (%s, %s, %s)', (dt_now, rfid, zaishitu))
+        if zaishitu == 0:
+            led.enter()
+        elif zaishitu == 1:
+            led.exit()
 
     # MySQLから切断する
     connection.close()
